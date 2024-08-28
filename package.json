@@ -1,0 +1,36 @@
+{
+	"name": "inventory-management-system-backend",
+	"version": "1.0.0",
+	"main": "index.js",
+	"type": "module",
+	"scripts": {
+		"test": "jest --watchAll --coverage",
+		"dev": "cross-env NODE_ENV=development dotenv -e .env.development nodemon",
+		"type-check": "tsc --noEmit",
+		"build": "tsc",
+		"start": "cross-env NODE_ENV=production dotenv -e .env.production node dist/index.js"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"description": "",
+	"dependencies": {
+		"cross-env": "^7.0.3",
+		"dotenv": "^16.4.5",
+		"express": "^4.19.2",
+		"faker": "^6.6.6",
+		"mysql2": "^3.11.0"
+	},
+	"devDependencies": {
+		"@jest/globals": "^29.7.0",
+		"@types/express": "^4.17.21",
+		"@types/node": "^22.2.0",
+		"dotenv-cli": "^7.4.2",
+		"jest": "^29.7.0",
+		"supertest": "^7.0.0",
+		"ts-jest": "^29.2.4",
+		"ts-node": "^10.9.2",
+		"tsx": "^4.17.0",
+		"typescript": "^5.5.4"
+	}
+}
