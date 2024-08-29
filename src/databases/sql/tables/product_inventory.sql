@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS product_inventory (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    inventory INT,
+    product INT,
+    warehouse INT,
+    user INT,
+    quantity INT NOT NULL,
+    company INT,
+    FOREIGN KEY (inventory) REFERENCES inventory(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    FOREIGN KEY (product) REFERENCES product(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    FOREIGN KEY (warehouse) REFERENCES warehouse(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    FOREIGN KEY (user) REFERENCES user(id) ON UPDATE CASCADE ON DELETE SET NULL,
+    FOREIGN KEY (company) REFERENCES company(id) ON UPDATE CASCADE ON DELETE SET NULL
+    
+);
