@@ -1,4 +1,4 @@
-import { jest, it, describe, afterAll, afterEach, beforeAll, beforeEach, expect } from '@jest/globals';
+import { jest, it, describe, afterEach, beforeEach, expect } from '@jest/globals';
 import {
 	CompanyDAO,
 	InventoryDAO,
@@ -25,18 +25,15 @@ import {
 	UserModel,
 	WarehouseModel,
 } from '../../src/models';
-import { DatabaseQueryError } from '../../src/errors/database';
-import { IDatabase } from '../../src/interfaces/IDatabase';
+import { DatabaseQueryError } from '../../src/errors/persistence';
+import { IDatabase, IDatabaseConnection } from '../../src/interfaces/IDatabase';
 import { IModel } from '../../src/interfaces/IModel';
-import Database from '../../src/databases/index';
 import { UserType } from '../../src/models/user.model';
 
 type combinedCriteriaWithoutId = Omit<WarehouseModel, 'id'> &
 	Omit<ProductModel, 'id'> &
 	Omit<StoreBranchModel, 'id'> &
 	Omit<ProductInventoryModel, 'id'>;
-
-type combinedCriteriaWithId = { id: number } & combinedCriteriaWithoutId;
 
 const daoClasses = [
 	{
@@ -144,9 +141,6 @@ const daoClasses = [
 
 describe('DAOs', () => {
 	let mockDB: IDatabase<any, any, any>;
-
-	let variable: number;
-
 	beforeEach(() => {
 		mockDB = {
 			executeRows: jest.fn().mockImplementation(() => Promise.resolve([[], []])), // Mock implementation for executeRows
@@ -164,7 +158,10 @@ describe('DAOs', () => {
 			it.concurrent.each(daoClasses)(
 				'"$DAOClass.name" has "$name" as the tableName when instantiated',
 				async ({ DAOClass, name }) => {
-					const daoInstance = new DAOClass({} as IDatabase<any, any, any>);
+					const daoInstance = new DAOClass({} as IDatabase<any, any, any>) as DAO<
+						IModel,
+						IDatabaseConnection
+					>;
 					expect(daoInstance.tableName).toBe(name);
 				}
 			);
@@ -177,7 +174,38 @@ describe('DAOs', () => {
 					const daoInstance = new DAOClass(mockDB);
 					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
 					const values = [1];
-					const result = await daoInstance.executeReadOperation(sql, values);
+					const result = await daoInstance.executeReadOperation({ sql, values });
+					expect(mockDB.executeRows).toHaveBeenCalledWith(sql, values);
+					expect(result).toEqual([]);
+				}
+			);
+
+			it.each(daoClasses)(
+				'$DAOClass.name instance should call connection.execute() when executeReadOperation() method is called with sql string, optional values, and a connection object provided as arguments, then return the rows',
+				async ({ DAOClass, name }) => {
+					const daoInstance = new DAOClass(mockDB);
+					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
+					const values = [1];
+					const connection = {
+						execute: jest.fn().mockImplementation(() => Promise.resolve([[], []])),
+					};
+					const result = await daoInstance.executeReadOperation({
+						sql,
+						values,
+						connection: connection as unknown as IDatabaseConnection,
+					});
+					expect(connection.execute).toHaveBeenCalledWith(sql, values);
+					expect(result).toEqual([]);
+				}
+			);
+
+			it.each(daoClasses)(
+				'$DAOClass.name instance should call database.executeRows() when executeWriteOperation() method is called only with the sql string, then return the result',
+				async ({ DAOClass, name }) => {
+					const daoInstance = new DAOClass(mockDB);
+					const sql = `INSERT INTO ${name} (name) VALUES (?);`;
+					const result = await daoInstance.executeReadOperation({ sql });
+					const values: any[] = [];
 					expect(mockDB.executeRows).toHaveBeenCalledWith(sql, values);
 					expect(result).toEqual([]);
 				}
@@ -192,31 +220,51 @@ describe('DAOs', () => {
 					const daoInstance = new DAOClass(mockDB);
 					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
 					const values = [1];
-					await expect(daoInstance.executeReadOperation(sql, values)).rejects.toThrow(DatabaseQueryError);
+					await expect(daoInstance.executeReadOperation({ sql, values })).rejects.toThrow(DatabaseQueryError);
 				}
 			);
 		});
 
 		describe('executeWriteOperation()', () => {
 			it.each(daoClasses)(
-				'$DAOClass.name instance should call database.executeRows() when executeReadOperation() method is called with sql string and optional values provided as arguments, then return the rows',
+				'$DAOClass.name instance should call database.executeResult() when executeWriteOperation() method is called with sql string and optional values provided as arguments, then return the result',
 				async ({ DAOClass, name }) => {
 					const daoInstance = new DAOClass(mockDB);
 					const sql = `INSERT INTO ${name} (name) VALUES (?);`;
 					const values = ['TEST'];
-					const result = await daoInstance.executeWriteOperation(sql, values);
+					const result = await daoInstance.executeWriteOperation({ sql, values });
 					expect(mockDB.executeResult).toHaveBeenCalledWith(sql, values);
 					expect(result).toEqual({});
 				}
 			);
 
 			it.each(daoClasses)(
-				'$DAOClass.name instance should call database.executeRows() when executeReadOperation() method is called only with the sql string, then return the rows',
+				'$DAOClass.name instance should call connection.execute() when executeWriteOperation() method is called with sql string, optional values, and a connection object provided as arguments, then return the result',
+				async ({ DAOClass, name }) => {
+					const daoInstance = new DAOClass(mockDB);
+					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
+					const values = [1];
+					const connection = {
+						execute: jest.fn().mockImplementation(() => Promise.resolve([{}, []])),
+					};
+					const result = await daoInstance.executeWriteOperation({
+						sql,
+						values,
+						connection: connection as unknown as IDatabaseConnection,
+					});
+					expect(connection.execute).toHaveBeenCalledWith(sql, values);
+					expect(result).toEqual({});
+				}
+			);
+
+			it.each(daoClasses)(
+				'$DAOClass.name instance should call database.executeResult() when executeWriteOperation() method is called only with the sql string, then return the result',
 				async ({ DAOClass, name }) => {
 					const daoInstance = new DAOClass(mockDB);
 					const sql = `INSERT INTO ${name} (name) VALUES (?);`;
-					const result = await daoInstance.executeWriteOperation(sql);
-					expect(mockDB.executeResult).toHaveBeenCalledWith(sql, []);
+					const result = await daoInstance.executeWriteOperation({ sql });
+					const values: any[] = [];
+					expect(mockDB.executeResult).toHaveBeenCalledWith(sql, values);
 					expect(result).toEqual({});
 				}
 			);
@@ -230,7 +278,9 @@ describe('DAOs', () => {
 					const daoInstance = new DAOClass(mockDB);
 					const sql = `INSERT INTO ${name} (name) VALUES (?);`;
 					const values = ['TEST'];
-					await expect(daoInstance.executeWriteOperation(sql, values)).rejects.toThrow(DatabaseQueryError);
+					await expect(daoInstance.executeWriteOperation({ sql, values })).rejects.toThrow(
+						DatabaseQueryError
+					);
 				}
 			);
 		});
@@ -241,8 +291,8 @@ describe('DAOs', () => {
 				executeResult: jest.fn().mockImplementation(() => Promise.resolve([{}, []])), // Mock implementation for executeResult
 				// Mock other methods as needed
 			} as unknown as jest.Mocked<IDatabase<any, any, any>>;
-			let spyExecuteReadOperation: jest.SpiedFunction<DAO<IModel>['executeReadOperation']>;
-			let spyExecuteWriteOperation: jest.SpiedFunction<DAO<IModel>['executeReadOperation']>;
+			let spyExecuteReadOperation: jest.SpiedFunction<DAO<IModel, IDatabaseConnection>['executeReadOperation']>;
+			let spyExecuteWriteOperation: jest.SpiedFunction<DAO<IModel, IDatabaseConnection>['executeWriteOperation']>;
 
 			beforeEach(() => {
 				spyExecuteReadOperation = jest.spyOn(DAO.prototype, 'executeReadOperation');
@@ -267,7 +317,11 @@ describe('DAOs', () => {
 			WHERE
 				id = ?;
 		`;
-						expect(spyExecuteReadOperation).toBeCalledWith(expectedSQL, [testId]);
+						expect(spyExecuteReadOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values: [testId],
+							connection: undefined,
+						});
 						expect(result).toEqual([]);
 					}
 				);
@@ -285,7 +339,7 @@ describe('DAOs', () => {
 			FROM
 				${name};
 		`;
-						expect(spyExecuteReadOperation).toBeCalledWith(expectedSQL);
+						expect(spyExecuteReadOperation).toBeCalledWith({ sql: expectedSQL, connection: undefined });
 						expect(result).toEqual([]);
 					}
 				);
@@ -306,7 +360,11 @@ describe('DAOs', () => {
 			WHERE
 		` + ` id = ?; `;
 						const values = [criteriaWithId.id];
-						expect(spyExecuteReadOperation).toBeCalledWith(expectedSQL, values);
+						expect(spyExecuteReadOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values,
+							connection: undefined,
+						});
 						expect(result).toEqual([]);
 					}
 				);
@@ -330,7 +388,11 @@ describe('DAOs', () => {
 						expectedSQL += ` ${conditions.join(' AND ')}; `;
 
 						const values = Object.values(criteriaWithoutId);
-						expect(spyExecuteReadOperation).toBeCalledWith(expectedSQL, values);
+						expect(spyExecuteReadOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values,
+							connection: undefined,
+						});
 						expect(result).toEqual([]);
 					}
 				);
@@ -353,7 +415,7 @@ describe('DAOs', () => {
 			VALUES
 			( ${new Array(keys.length).fill('?').join(', ')} );
 			`;
-						expect(spyExecuteWriteOperation).toBeCalledWith(expectedSQL, values);
+						expect(spyExecuteWriteOperation).toBeCalledWith({ sql: expectedSQL, values });
 						expect(result).toEqual({});
 					}
 				);
@@ -382,7 +444,7 @@ describe('DAOs', () => {
 						}
 						expectedSQL += ` ${columns.map((column) => `${column} = ?`).join(', ')} WHERE id = ?;`;
 						values.push(testId);
-						expect(spyExecuteWriteOperation).toBeCalledWith(expectedSQL, values);
+						expect(spyExecuteWriteOperation).toBeCalledWith({ sql: expectedSQL, values });
 						expect(result).toEqual({});
 					}
 				);
@@ -401,7 +463,7 @@ describe('DAOs', () => {
 				id = ?;
 		`;
 						let values = [testId];
-						expect(spyExecuteWriteOperation).toBeCalledWith(expectedSQL, values);
+						expect(spyExecuteWriteOperation).toBeCalledWith({ sql: expectedSQL, values });
 						expect(result).toEqual({});
 					}
 				);
