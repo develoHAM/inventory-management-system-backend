@@ -1,9 +1,12 @@
 import { StoreManagerModel } from 'models';
 import { DAO } from './DAO';
 import { IDAO } from 'interfaces/IDAO';
-import { IDatabase } from 'interfaces/IDatabase';
+import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
 
-export class StoreManagerDAO extends DAO<StoreManagerModel> implements IDAO<StoreManagerModel> {
+export class StoreManagerDAO
+	extends DAO<StoreManagerModel, IDatabaseConnection>
+	implements IDAO<StoreManagerModel, IDatabaseConnection>
+{
 	static tableName: string = 'store_manager';
 
 	constructor(database: IDatabase<any, any, any>) {

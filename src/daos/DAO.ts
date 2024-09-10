@@ -1,36 +1,60 @@
 import { IModel } from 'interfaces/IModel';
-import { IDatabase } from 'interfaces/IDatabase';
-import { DatabaseQueryError } from '../errors/database';
-import { IDAO } from 'interfaces/IDAO';
+import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { DatabaseQueryError } from '../errors/persistence';
+import { IDAO, ExecuteOperationParameter } from 'interfaces/IDAO';
 
-export class DAO<ModelType extends IModel> implements IDAO<ModelType> {
-	protected database: IDatabase<any, any, any>;
+export abstract class DAO<ModelType extends IModel, ConnectionType extends IDatabaseConnection>
+	implements IDAO<ModelType, ConnectionType>
+{
+	protected database: IDatabase<any, any, ConnectionType>;
 	tableName: string;
 
-	constructor(database: IDatabase<any, any, any>, tableName: string) {
+	constructor(database: IDatabase<any, any, ConnectionType>, tableName: string) {
 		this.database = database;
 		this.tableName = tableName;
 	}
 
-	async executeReadOperation(sql: string, values: any[] = []) {
+	async executeReadOperation({
+		sql,
+		values = [],
+		connection,
+	}: ExecuteOperationParameter<ConnectionType>): Promise<ModelType[]> {
 		try {
-			const [rows] = await this.database.executeRows(sql, values);
+			let rows: ModelType[];
+			if (connection) {
+				const [result] = await connection.execute(sql, values);
+				rows = result as ModelType[];
+			} else {
+				const [result] = await this.database.executeRows(sql, values);
+				rows = result as ModelType[];
+			}
 			return rows;
 		} catch (error) {
 			throw new DatabaseQueryError(sql, values);
 		}
 	}
 
-	async executeWriteOperation(sql: string, values: any[] = []) {
+	async executeWriteOperation({
+		sql,
+		values = [],
+		connection,
+	}: ExecuteOperationParameter<ConnectionType>): Promise<Record<string, any>> {
 		try {
-			const [result] = await this.database.executeResult(sql, values);
-			return result;
+			let executionResult: Record<string, any>;
+			if (connection) {
+				const [result] = await connection.execute(sql, values);
+				executionResult = result;
+			} else {
+				const [result] = await this.database.executeResult(sql, values);
+				executionResult = result;
+			}
+			return executionResult;
 		} catch (error) {
 			throw new DatabaseQueryError(sql, values);
 		}
 	}
 
-	async selectById(id: number) {
+	async selectById(id: number, connection?: ConnectionType) {
 		let sql = `
 			SELECT
 				*
@@ -41,10 +65,10 @@ export class DAO<ModelType extends IModel> implements IDAO<ModelType> {
 		`;
 		let values = [id];
 
-		return this.executeReadOperation(sql, values);
+		return this.executeReadOperation({ sql, values, connection });
 	}
 
-	async selectAll() {
+	async selectAll(connection?: ConnectionType): Promise<ModelType[]> {
 		let sql = `
 			SELECT
 				*
@@ -52,10 +76,10 @@ export class DAO<ModelType extends IModel> implements IDAO<ModelType> {
 				${this.tableName};
 		`;
 
-		return await this.executeReadOperation(sql);
+		return await this.executeReadOperation({ sql, connection });
 	}
 
-	async selectWhere(criteria: Partial<ModelType>) {
+	async selectWhere(criteria: Partial<ModelType>, connection?: ConnectionType) {
 		let sql = `
 			SELECT
 				*
@@ -74,16 +98,16 @@ export class DAO<ModelType extends IModel> implements IDAO<ModelType> {
 			}
 			sql += ` ${conditions.join(' AND ')}; `;
 
-			return this.executeReadOperation(sql, values);
+			return this.executeReadOperation({ sql, values, connection });
 		} else {
 			sql += ` id = ?; `;
 			values.push(criteria.id);
 
-			return this.executeReadOperation(sql, values);
+			return this.executeReadOperation({ sql, values, connection });
 		}
 	}
 
-	async insertOne(model: Omit<ModelType, 'id'>) {
+	async insertOne(model: Omit<ModelType, 'id'>, connection?: ConnectionType) {
 		let sql = `
 			INSERT INTO
 				${this.tableName}
@@ -103,10 +127,10 @@ export class DAO<ModelType extends IModel> implements IDAO<ModelType> {
 			( ${new Array(columns.length).fill('?').join(', ')} );
 			`;
 
-		return this.executeWriteOperation(sql, values);
+		return this.executeWriteOperation({ sql, values });
 	}
 
-	async updateById(id: number, updates: Partial<Omit<ModelType, 'id'>>) {
+	async updateById(id: number, updates: Partial<Omit<ModelType, 'id'>>, connection?: ConnectionType) {
 		let sql = `
 			UPDATE
 				${this.tableName}
@@ -124,17 +148,17 @@ export class DAO<ModelType extends IModel> implements IDAO<ModelType> {
 		sql += ` ${columns.map((column) => `${column} = ?`).join(', ')} WHERE id = ?;`;
 		values.push(id);
 
-		return this.executeWriteOperation(sql, values);
+		return this.executeWriteOperation({ sql, values, connection });
 	}
 
-	async deleteById(id: number) {
+	async deleteById(id: number, connection?: ConnectionType) {
 		let sql = `
 			DELETE FROM
 				${this.tableName}
 			WHERE
 				id = ?;
 		`;
-
-		return this.executeWriteOperation(sql, [id]);
+		let values = [id];
+		return this.executeWriteOperation({ sql, values, connection });
 	}
 }
