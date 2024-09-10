@@ -5,7 +5,7 @@ jest.mock('node:path');
 import path from 'node:path';
 jest.mock('mysql2/promise');
 import mysql, { Pool, PoolConnection } from 'mysql2/promise';
-import { DatabaseConnectionError, DatabaseTableInitializationError } from '../../src/errors/database';
+import { DatabaseConnectionError, DatabaseTableInitializationError } from '../../src/errors/persistence';
 import { MockInstance } from 'jest-mock';
 
 const mockCredentials = {
