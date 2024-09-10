@@ -3,6 +3,6 @@ CREATE TABLE IF NOT EXISTS store_branch (
     location VARCHAR(255) NOT NULL UNIQUE,
     store_manager INT,
     company INT,
-    FOREIGN KEY (store_manager) REFERENCES store_manager(id) ON UPDATE CASCADE ON DELETE SET NULL
+    FOREIGN KEY (store_manager) REFERENCES store_manager(id) ON UPDATE CASCADE ON DELETE SET NULL,
     FOREIGN KEY (company) REFERENCES company(id) ON UPDATE CASCADE ON DELETE SET NULL
 );
