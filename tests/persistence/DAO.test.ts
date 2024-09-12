@@ -143,8 +143,8 @@ describe('DAOs', () => {
 	let mockDB: IDatabase<any, any, any>;
 	beforeEach(() => {
 		mockDB = {
-			executeRows: jest.fn().mockImplementation(() => Promise.resolve([[], []])), // Mock implementation for executeRows
-			executeResult: jest.fn().mockImplementation(() => Promise.resolve([{}, []])), // Mock implementation for executeResult
+			executeRows: jest.fn().mockImplementation(() => Promise.resolve([[], {}])), // Mock implementation for executeRows
+			executeResult: jest.fn().mockImplementation(() => Promise.resolve([{}, {}])), // Mock implementation for executeResult
 			// Mock other methods as needed
 		} as unknown as jest.Mocked<IDatabase<any, any, any>>;
 	});
@@ -187,7 +187,7 @@ describe('DAOs', () => {
 					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
 					const values = [1];
 					const connection = {
-						execute: jest.fn().mockImplementation(() => Promise.resolve([[], []])),
+						execute: jest.fn().mockImplementation(() => Promise.resolve([[], {}])),
 					};
 					const result = await daoInstance.executeReadOperation({
 						sql,
@@ -245,7 +245,7 @@ describe('DAOs', () => {
 					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
 					const values = [1];
 					const connection = {
-						execute: jest.fn().mockImplementation(() => Promise.resolve([{}, []])),
+						execute: jest.fn().mockImplementation(() => Promise.resolve([{}, {}])),
 					};
 					const result = await daoInstance.executeWriteOperation({
 						sql,
@@ -287,13 +287,21 @@ describe('DAOs', () => {
 
 		describe('CRUD methods', () => {
 			let mockDB = {
-				executeRows: jest.fn().mockImplementation(() => Promise.resolve([[], []])), // Mock implementation for executeRows
-				executeResult: jest.fn().mockImplementation(() => Promise.resolve([{}, []])), // Mock implementation for executeResult
+				executeRows: jest.fn().mockImplementation(() => Promise.resolve([[], {}])), // Mock implementation for executeRows
+				executeResult: jest.fn().mockImplementation(() => Promise.resolve([{}, {}])), // Mock implementation for executeResult
 				// Mock other methods as needed
 			} as unknown as jest.Mocked<IDatabase<any, any, any>>;
 			let spyExecuteReadOperation: jest.SpiedFunction<DAO<IModel, IDatabaseConnection>['executeReadOperation']>;
 			let spyExecuteWriteOperation: jest.SpiedFunction<DAO<IModel, IDatabaseConnection>['executeWriteOperation']>;
-
+			let mockConnection = {
+				execute: jest.fn(async (sql: string, values: any[]) => {
+					if (sql.includes('SELECT')) {
+						return [[], {}];
+					} else {
+						return [{}, {}];
+					}
+				}),
+			} as unknown as IDatabaseConnection;
 			beforeEach(() => {
 				spyExecuteReadOperation = jest.spyOn(DAO.prototype, 'executeReadOperation');
 				spyExecuteWriteOperation = jest.spyOn(DAO.prototype, 'executeWriteOperation');
@@ -305,7 +313,7 @@ describe('DAOs', () => {
 
 			describe('selectById()', () => {
 				it.each(daoClasses)(
-					'$DAOClass.name calls executeReadOperation() on $name with "id" provided as "$testId" and returns its result',
+					'$DAOClass.name calls executeReadOperation() on $name with "id" provided as "$testId", then returns its result',
 					async ({ DAOClass, testId, name }) => {
 						const daoInstance = new DAOClass(mockDB);
 						const result = await daoInstance.selectById(testId);
@@ -325,11 +333,33 @@ describe('DAOs', () => {
 						expect(result).toEqual([]);
 					}
 				);
+
+				it.each(daoClasses)(
+					'$DAOClass.name calls executeReadOperation() on $name with "id" provided as "$testId" and a connection object, then returns its result',
+					async ({ DAOClass, testId, name }) => {
+						const daoInstance = new DAOClass(mockDB);
+						const result = await daoInstance.selectById(testId, mockConnection);
+						const expectedSQL = `
+			SELECT
+				*
+			FROM
+				${name}
+			WHERE
+				id = ?;
+		`;
+						expect(spyExecuteReadOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values: [testId],
+							connection: mockConnection,
+						});
+						expect(result).toEqual([]);
+					}
+				);
 			});
 
 			describe('selectAll()', () => {
 				it.each(daoClasses)(
-					'$DAOClass.name calls executeReadOperation() on $name and returns its result',
+					'$DAOClass.name calls executeReadOperation() on $name, then returns its result',
 					async ({ DAOClass, name }) => {
 						const daoInstance = new DAOClass(mockDB);
 						const result = await daoInstance.selectAll();
@@ -343,11 +373,30 @@ describe('DAOs', () => {
 						expect(result).toEqual([]);
 					}
 				);
+
+				it.each(daoClasses)(
+					'$DAOClass.name calls executeReadOperation() on $name with "id" provided as "$testId" and a connection object, then returns its result',
+					async ({ DAOClass, name }) => {
+						const daoInstance = new DAOClass(mockDB);
+						const result = await daoInstance.selectAll(mockConnection);
+						const expectedSQL = `
+			SELECT
+				*
+			FROM
+				${name};
+		`;
+						expect(spyExecuteReadOperation).toBeCalledWith({
+							sql: expectedSQL,
+							connection: mockConnection,
+						});
+						expect(result).toEqual([]);
+					}
+				);
 			});
 
 			describe('selectWhere()', () => {
 				it.each(daoClasses)(
-					'$DAOClass.name calls executeReadOperation() on $name and returns its result when criteria with id is given',
+					'$DAOClass.name calls executeReadOperation() on $name, then returns its result when criteria with id is given',
 					async ({ DAOClass, name, criteriaWithId }) => {
 						const daoInstance = new DAOClass(mockDB);
 						const result = await daoInstance.selectWhere(criteriaWithId);
@@ -370,7 +419,30 @@ describe('DAOs', () => {
 				);
 
 				it.each(daoClasses)(
-					'$DAOClass.name calls executeReadOperation() on $name and returns its result when criteria without id is given',
+					'$DAOClass.name calls executeReadOperation() on $name with a connection object, then returns its result when criteria with id is given',
+					async ({ DAOClass, name, criteriaWithId }) => {
+						const daoInstance = new DAOClass(mockDB);
+						const result = await daoInstance.selectWhere(criteriaWithId, mockConnection);
+						const expectedSQL =
+							`
+			SELECT
+				*
+			FROM
+				${name}
+			WHERE
+		` + ` id = ?; `;
+						const values = [criteriaWithId.id];
+						expect(spyExecuteReadOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values,
+							connection: mockConnection,
+						});
+						expect(result).toEqual([]);
+					}
+				);
+
+				it.each(daoClasses)(
+					'$DAOClass.name calls executeReadOperation() on $name, then returns its result when criteria without id is given',
 					async ({ DAOClass, name, criteriaWithoutId }) => {
 						const daoInstance = new DAOClass(mockDB);
 						const result = await daoInstance.selectWhere(criteriaWithoutId);
@@ -396,11 +468,39 @@ describe('DAOs', () => {
 						expect(result).toEqual([]);
 					}
 				);
+
+				it.each(daoClasses)(
+					'$DAOClass.name calls executeReadOperation() on $name with a connection object, then returns its result when criteria without id is given',
+					async ({ DAOClass, name, criteriaWithoutId }) => {
+						const daoInstance = new DAOClass(mockDB);
+						const result = await daoInstance.selectWhere(criteriaWithoutId, mockConnection);
+						let expectedSQL = `
+			SELECT
+				*
+			FROM
+				${name}
+			WHERE
+		`;
+						let conditions: string[] = [];
+						for (const [key, value] of Object.entries(criteriaWithoutId)) {
+							conditions.push(` ${key} = ? `);
+						}
+						expectedSQL += ` ${conditions.join(' AND ')}; `;
+
+						const values = Object.values(criteriaWithoutId);
+						expect(spyExecuteReadOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values,
+							connection: mockConnection,
+						});
+						expect(result).toEqual([]);
+					}
+				);
 			});
 
 			describe('insertOne()', () => {
 				it.each(daoClasses)(
-					'$DAOClass.name calls executeWriteOperation() on $name and returns its result when criteria without id is given',
+					'$DAOClass.name calls executeWriteOperation() on $name, then returns its result when criteria without id is given',
 					async ({ DAOClass, name, criteriaWithoutId }) => {
 						const daoInstance = new DAOClass(mockDB);
 						const result = await daoInstance.insertOne(criteriaWithoutId as combinedCriteriaWithoutId);
@@ -419,11 +519,39 @@ describe('DAOs', () => {
 						expect(result).toEqual({});
 					}
 				);
+
+				it.each(daoClasses)(
+					'$DAOClass.name calls executeWriteOperation() on $name with a connection object, then returns its result when criteria without id is given',
+					async ({ DAOClass, name, criteriaWithoutId }) => {
+						const daoInstance = new DAOClass(mockDB);
+						const result = await daoInstance.insertOne(
+							criteriaWithoutId as combinedCriteriaWithoutId,
+							mockConnection
+						);
+						let expectedSQL = `
+			INSERT INTO
+				${name}
+		`;
+						const values = Object.values(criteriaWithoutId);
+						const keys = Object.keys(criteriaWithoutId);
+						expectedSQL += `
+			( ${keys.join(', ')} ) 
+			VALUES
+			( ${new Array(keys.length).fill('?').join(', ')} );
+			`;
+						expect(spyExecuteWriteOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values,
+							connection: mockConnection,
+						});
+						expect(result).toEqual({});
+					}
+				);
 			});
 
 			describe('updateById()', () => {
 				it.each(daoClasses)(
-					'$DAOClass.name calls executeWriteOperation() on $name and returns its result when id and updates are given',
+					'$DAOClass.name calls executeWriteOperation() on $name, then returns its result when id and updates are given',
 					async ({ DAOClass, name, testId, updates }) => {
 						const daoInstance = new DAOClass(mockDB);
 						const result = await daoInstance.updateById(
@@ -448,11 +576,43 @@ describe('DAOs', () => {
 						expect(result).toEqual({});
 					}
 				);
+
+				it.each(daoClasses)(
+					'$DAOClass.name calls executeWriteOperation() on $name with a connection object, then returns its result when id and updates are given',
+					async ({ DAOClass, name, testId, updates }) => {
+						const daoInstance = new DAOClass(mockDB);
+						const result = await daoInstance.updateById(
+							testId,
+							updates as unknown as combinedCriteriaWithoutId,
+							mockConnection
+						);
+						let expectedSQL = `
+			UPDATE
+				${name}
+			SET
+		`;
+						let columns: string[] = [];
+						let values: any[] = [];
+
+						for (const [key, value] of Object.entries(updates)) {
+							columns.push(key);
+							values.push(value);
+						}
+						expectedSQL += ` ${columns.map((column) => `${column} = ?`).join(', ')} WHERE id = ?;`;
+						values.push(testId);
+						expect(spyExecuteWriteOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values,
+							connection: mockConnection,
+						});
+						expect(result).toEqual({});
+					}
+				);
 			});
 
 			describe('deleteById()', () => {
 				it.each(daoClasses)(
-					'$DAOClass.name calls executeWriteOperation() on $name and returns its result when id is given',
+					'$DAOClass.name calls executeWriteOperation() on $name, then returns its result when id is given',
 					async ({ DAOClass, name, testId }) => {
 						const daoInstance = new DAOClass(mockDB);
 						const result = await daoInstance.deleteById(testId);
@@ -464,6 +624,27 @@ describe('DAOs', () => {
 		`;
 						let values = [testId];
 						expect(spyExecuteWriteOperation).toBeCalledWith({ sql: expectedSQL, values });
+						expect(result).toEqual({});
+					}
+				);
+
+				it.each(daoClasses)(
+					'$DAOClass.name calls executeWriteOperation() on $name with a connection object, then returns its result when id is given',
+					async ({ DAOClass, name, testId }) => {
+						const daoInstance = new DAOClass(mockDB);
+						const result = await daoInstance.deleteById(testId, mockConnection);
+						let expectedSQL = `
+			DELETE FROM
+				${name}
+			WHERE
+				id = ?;
+		`;
+						let values = [testId];
+						expect(spyExecuteWriteOperation).toBeCalledWith({
+							sql: expectedSQL,
+							values,
+							connection: mockConnection,
+						});
 						expect(result).toEqual({});
 					}
 				);
