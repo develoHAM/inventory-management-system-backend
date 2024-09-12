@@ -13,6 +13,6 @@ export interface UserModel extends IModel {
 	phone: string;
 	password: string;
 	user_type: UserType;
-	company: number | null;
-	store_branch: number | null;
+	company?: number | null;
+	store_branch?: number | null;
 }
