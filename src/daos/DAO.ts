@@ -127,7 +127,7 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 			( ${new Array(columns.length).fill('?').join(', ')} );
 			`;
 
-		return this.executeWriteOperation({ sql, values });
+		return this.executeWriteOperation({ sql, values, connection });
 	}
 
 	async updateById(id: number, updates: Partial<Omit<ModelType, 'id'>>, connection?: ConnectionType) {
