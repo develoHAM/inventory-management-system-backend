@@ -1,3 +1,7 @@
+import mysql from 'mysql2/promise';
+
+export interface IDatabaseConnection extends mysql.PoolConnection {}
+
 export interface IDatabase<QueryResultType, RowType, ConnectionType> {
 	connect(): Promise<boolean>;
 	getConnection(): Promise<ConnectionType>;

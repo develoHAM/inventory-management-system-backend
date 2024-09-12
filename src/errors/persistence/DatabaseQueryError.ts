@@ -4,7 +4,6 @@ export class DatabaseQueryError extends Error {
 		if (values) {
 			message += `\nvalues: ${values}`;
 		}
-
 		super(message);
 		this.name = this.constructor.name;
 		Object.setPrototypeOf(this, DatabaseQueryError.prototype);

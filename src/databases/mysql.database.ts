@@ -1,19 +1,19 @@
-import mysql, { PoolConnection, Pool, PoolOptions, RowDataPacket, ResultSetHeader } from 'mysql2/promise';
+import mysql from 'mysql2/promise';
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { IDatabase } from 'interfaces/IDatabase';
-import { DatabaseConnectionError, DatabaseTableInitializationError } from '../errors/database';
+import { DatabaseConnectionError, DatabaseTableInitializationError } from '../errors/persistence';
 
 export class MySQL implements IDatabase<mysql.ResultSetHeader, mysql.RowDataPacket, mysql.PoolConnection> {
-	#dataSource: Pool;
+	#dataSource: mysql.Pool;
 	#tableInitializationOrder: string[];
 
-	constructor(credentials: PoolOptions, tableInitializationOrder: string[]) {
+	constructor(credentials: mysql.PoolOptions, tableInitializationOrder: string[]) {
 		this.#dataSource = this.createPool(credentials);
 		this.#tableInitializationOrder = tableInitializationOrder;
 	}
 
-	createPool(credentials: PoolOptions) {
+	createPool(credentials: mysql.PoolOptions): mysql.Pool {
 		return mysql.createPool(credentials);
 	}
 
@@ -57,7 +57,7 @@ export class MySQL implements IDatabase<mysql.ResultSetHeader, mysql.RowDataPack
 	}
 
 	async initializeTables(): Promise<boolean> {
-		let connection: PoolConnection = await this.getConnection();
+		let connection: mysql.PoolConnection = await this.getConnection();
 		let createdTables: string[] = [];
 		try {
 			const tableDirectory = path.resolve('src', 'databases', 'sql', 'tables');
@@ -74,6 +74,7 @@ export class MySQL implements IDatabase<mysql.ResultSetHeader, mysql.RowDataPack
 			console.log(`Successfully created tables: \n ${createdTables.join('\n ')}`);
 			return true;
 		} catch (error) {
+			console.log(error);
 			if (connection) {
 				const reversedSortedSqlFiles = [...this.#tableInitializationOrder].reverse();
 				for (const sqlFile of reversedSortedSqlFiles) {
@@ -93,48 +94,48 @@ export class MySQL implements IDatabase<mysql.ResultSetHeader, mysql.RowDataPack
 	/** For `SELECT` and `SHOW` */
 	get queryRows() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<RowDataPacket[]>;
+		return this.#dataSource.query.bind(this.#dataSource)<mysql.RowDataPacket[]>;
 	}
 
 	/** For `SELECT` and `SHOW` with `rowAsArray` as `true` */
 	get queryRowsAsArray() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<RowDataPacket[][]>;
+		return this.#dataSource.query.bind(this.#dataSource)<mysql.RowDataPacket[][]>;
 	}
 
 	/** For `INSERT`, `UPDATE`, etc. */
 	get queryResult() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<ResultSetHeader>;
+		return this.#dataSource.query.bind(this.#dataSource)<mysql.ResultSetHeader>;
 	}
 
 	/** For multiple `INSERT`, `UPDATE`, etc. with `multipleStatements` as `true` */
 	get queryResults() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<ResultSetHeader[]>;
+		return this.#dataSource.query.bind(this.#dataSource)<mysql.ResultSetHeader[]>;
 	}
 
 	/** For `SELECT` and `SHOW` */
 	get executeRows() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<RowDataPacket[]>;
+		return this.#dataSource.execute.bind(this.#dataSource)<mysql.RowDataPacket[]>;
 	}
 
 	/** For `SELECT` and `SHOW` with `rowAsArray` as `true` */
 	get executeRowsAsArray() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<RowDataPacket[][]>;
+		return this.#dataSource.execute.bind(this.#dataSource)<mysql.RowDataPacket[][]>;
 	}
 
 	/** For `INSERT`, `UPDATE`, etc. */
 	get executeResult() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<ResultSetHeader>;
+		return this.#dataSource.execute.bind(this.#dataSource)<mysql.ResultSetHeader>;
 	}
 
 	/** For multiple `INSERT`, `UPDATE`, etc. with `multipleStatements` as `true` */
 	get executeResults() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<ResultSetHeader[]>;
+		return this.#dataSource.execute.bind(this.#dataSource)<mysql.ResultSetHeader[]>;
 	}
 }
