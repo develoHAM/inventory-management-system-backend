@@ -10,7 +10,6 @@ import {
 	StoreManagerRepository,
 	UserRepository,
 	WarehouseRepository,
-	Repository,
 } from '../../src/repositories';
 import { IDAO } from '../../src/interfaces/IDAO';
 import { IDatabaseConnection } from '../../src/interfaces/IDatabase';

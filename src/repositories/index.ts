@@ -8,4 +8,3 @@ export { StoreBranchRepository } from './store_branch.repository';
 export { StoreManagerRepository } from './store_manager.repository';
 export { UserRepository } from './user.repository';
 export { WarehouseRepository } from './warehouse.repository';
-export { Repository } from './Repository';
