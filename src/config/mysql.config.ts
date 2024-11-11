@@ -10,6 +10,7 @@ export const mysqlConfig: ConnectionOptions = {
 	port: Number(process.env.MYSQL_PORT),
 	connectionLimit: 10,
 	waitForConnections: true,
+	timezone: '+09:00',
 };
 
 export const tableInitializationOrder: TableOrderType = [
