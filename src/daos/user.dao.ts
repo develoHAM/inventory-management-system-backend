@@ -1,9 +1,12 @@
 import { UserModel } from 'models';
 import { DAO } from './DAO';
-import { IDAO } from 'interfaces/IDAO';
-import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { IDAO } from 'types/IDAO';
+import { IDatabase, IDatabaseConnection } from 'types/IDatabase';
 
-export class UserDAO extends DAO<UserModel, IDatabaseConnection> implements IDAO<UserModel, IDatabaseConnection> {
+export class UserDAO
+	extends DAO<any, UserModel, IDatabaseConnection>
+	implements IDAO<any, UserModel, IDatabaseConnection>
+{
 	static tableName: string = 'user';
 
 	constructor(database: IDatabase<any, any, any>) {

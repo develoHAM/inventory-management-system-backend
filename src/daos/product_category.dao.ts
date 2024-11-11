@@ -1,11 +1,11 @@
 import { ProductCategoryModel } from 'models';
 import { DAO } from './DAO';
-import { IDAO } from 'interfaces/IDAO';
-import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { IDAO } from 'types/IDAO';
+import { IDatabase, IDatabaseConnection } from 'types/IDatabase';
 
 export class ProductCategoryDAO
-	extends DAO<ProductCategoryModel, IDatabaseConnection>
-	implements IDAO<ProductCategoryModel, IDatabaseConnection>
+	extends DAO<any, ProductCategoryModel, IDatabaseConnection>
+	implements IDAO<any, ProductCategoryModel, IDatabaseConnection>
 {
 	static tableName: string = 'product_category';
 

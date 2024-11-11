@@ -1,11 +1,11 @@
 import { WarehouseModel } from 'models';
 import { DAO } from './DAO';
-import { IDAO } from 'interfaces/IDAO';
-import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { IDAO } from 'types/IDAO';
+import { IDatabase, IDatabaseConnection } from 'types/IDatabase';
 
 export class WarehouseDAO
-	extends DAO<WarehouseModel, IDatabaseConnection>
-	implements IDAO<WarehouseModel, IDatabaseConnection>
+	extends DAO<any, WarehouseModel, IDatabaseConnection>
+	implements IDAO<any, WarehouseModel, IDatabaseConnection>
 {
 	static tableName: string = 'warehouse';
 
