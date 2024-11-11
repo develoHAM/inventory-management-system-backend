@@ -1,4 +1,4 @@
-import { IModel } from 'interfaces/IModel';
+import { IModel } from 'types/IModel';
 
 export interface ProductInventoryModel extends IModel {
 	inventory?: number | null;
