@@ -1,15 +1,19 @@
-import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { IDatabase, IDatabaseConnection } from 'types/IDatabase';
 import { DatabaseConnectionError, TransactionHandlingError } from '../errors/persistence';
-import { ITransactionHandler } from 'interfaces/ITransactionHandler';
+import { ITransactionHandler } from 'types/ITransactionHandler';
 
-export class TransactionHandler<T extends IDatabase<any, any, any>> implements ITransactionHandler {
-	#database: IDatabase<any, any, any>;
+export class TransactionHandler<
+	DatabaseType extends IDatabase<any, any, any>,
+	ConnectionType extends IDatabaseConnection
+> implements ITransactionHandler<ConnectionType>
+{
+	#database: DatabaseType;
 
-	constructor(database: T) {
+	constructor(database: DatabaseType) {
 		this.#database = database;
 	}
 
-	async getConnection() {
+	async getConnection(): Promise<ConnectionType> {
 		try {
 			return await this.#database.getConnection();
 		} catch (error: any) {
@@ -21,10 +25,9 @@ export class TransactionHandler<T extends IDatabase<any, any, any>> implements I
 		}
 	}
 
-	async begin(connection: IDatabaseConnection) {
+	async begin(connection: ConnectionType): Promise<void> {
 		try {
 			await this.#database.beginTransaction(connection);
-			return true;
 		} catch (error: any) {
 			if (error instanceof DatabaseConnectionError) {
 				throw error;
@@ -34,10 +37,9 @@ export class TransactionHandler<T extends IDatabase<any, any, any>> implements I
 		}
 	}
 
-	async commit(connection: IDatabaseConnection) {
+	async commit(connection: ConnectionType): Promise<void> {
 		try {
 			await this.#database.commitTransaction(connection);
-			return true;
 		} catch (error: any) {
 			if (error instanceof DatabaseConnectionError) {
 				throw error;
@@ -47,10 +49,9 @@ export class TransactionHandler<T extends IDatabase<any, any, any>> implements I
 		}
 	}
 
-	async rollback(connection: IDatabaseConnection) {
+	async rollback(connection: ConnectionType): Promise<void> {
 		try {
 			await this.#database.rollbackTransaction(connection);
-			return true;
 		} catch (error: any) {
 			if (error instanceof DatabaseConnectionError) {
 				throw error;
@@ -60,10 +61,9 @@ export class TransactionHandler<T extends IDatabase<any, any, any>> implements I
 		}
 	}
 
-	end(connection: IDatabaseConnection) {
+	end(connection: ConnectionType): void {
 		try {
 			this.#database.releaseConnection(connection);
-			return true;
 		} catch (error: any) {
 			if (error instanceof DatabaseConnectionError) {
 				throw error;
