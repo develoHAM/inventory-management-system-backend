@@ -19,9 +19,9 @@ export const tableInitializationOrder: TableOrderType = [
 	'company.sql',
 	'inventory.sql',
 	'store_manager.sql',
-	'warehouse.sql',
 	'product.sql',
 	'store_branch.sql',
+	'warehouse.sql',
 	'user.sql',
 	'product_inventory.sql',
 ];
