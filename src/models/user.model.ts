@@ -1,9 +1,9 @@
-import { IModel } from 'interfaces/IModel';
+import { IModel } from 'types/IModel';
 
 export enum UserType {
-	ADMIN = 'admin',
-	USER = 'user',
-	STORE_ADMIN = 'store_admin',
+	ADMIN = 'ADMIN',
+	STORE_STAFF = 'STORE_STAFF',
+	STORE_ADMIN = 'STORE_ADMIN',
 }
 
 export interface UserModel extends IModel {

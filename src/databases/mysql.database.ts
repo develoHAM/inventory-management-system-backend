@@ -1,12 +1,14 @@
 import mysql from 'mysql2/promise';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { IDatabase } from 'interfaces/IDatabase';
+import { IDatabase } from 'types/IDatabase';
 import { DatabaseConnectionError, DatabaseTableInitializationError } from '../errors/persistence';
 
 export class MySQL implements IDatabase<mysql.ResultSetHeader, mysql.RowDataPacket, mysql.PoolConnection> {
 	#dataSource: mysql.Pool;
 	#tableInitializationOrder: string[];
+	#FOR_UPDATE = 'FOR UPDATE';
+	#FOR_SHARE = 'LOCK IN SHARE MODE';
 
 	constructor(credentials: mysql.PoolOptions, tableInitializationOrder: string[]) {
 		this.#dataSource = this.createPool(credentials);
@@ -91,51 +93,65 @@ export class MySQL implements IDatabase<mysql.ResultSetHeader, mysql.RowDataPack
 		}
 	}
 
+	lockForUpdate(sql: string) {
+		if (sql.includes(';') && sql.trim().endsWith(';')) {
+			return sql.replace(';', ` ${this.#FOR_UPDATE};`);
+		}
+		return sql + ` ${this.#FOR_UPDATE};`;
+	}
+
+	lockForShare(sql: string) {
+		if (sql.includes(';') && sql.trim().endsWith(';')) {
+			return sql.replace(';', ` ${this.#FOR_SHARE};`);
+		}
+		return sql + ` ${this.#FOR_SHARE};`;
+	}
+
 	/** For `SELECT` and `SHOW` */
 	get queryRows() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<mysql.RowDataPacket[]>;
+		return this.#dataSource.query.bind(this.#dataSource);
 	}
 
 	/** For `SELECT` and `SHOW` with `rowAsArray` as `true` */
 	get queryRowsAsArray() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<mysql.RowDataPacket[][]>;
+		return this.#dataSource.query.bind(this.#dataSource);
 	}
 
 	/** For `INSERT`, `UPDATE`, etc. */
 	get queryResult() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<mysql.ResultSetHeader>;
+		return this.#dataSource.query.bind(this.#dataSource);
 	}
 
 	/** For multiple `INSERT`, `UPDATE`, etc. with `multipleStatements` as `true` */
 	get queryResults() {
 		this.connect();
-		return this.#dataSource.query.bind(this.#dataSource)<mysql.ResultSetHeader[]>;
+		return this.#dataSource.query.bind(this.#dataSource);
 	}
 
 	/** For `SELECT` and `SHOW` */
 	get executeRows() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<mysql.RowDataPacket[]>;
+		return this.#dataSource.execute.bind(this.#dataSource);
 	}
 
 	/** For `SELECT` and `SHOW` with `rowAsArray` as `true` */
 	get executeRowsAsArray() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<mysql.RowDataPacket[][]>;
+		return this.#dataSource.execute.bind(this.#dataSource);
 	}
 
 	/** For `INSERT`, `UPDATE`, etc. */
 	get executeResult() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<mysql.ResultSetHeader>;
+		return this.#dataSource.execute.bind(this.#dataSource);
 	}
 
 	/** For multiple `INSERT`, `UPDATE`, etc. with `multipleStatements` as `true` */
 	get executeResults() {
 		this.connect();
-		return this.#dataSource.execute.bind(this.#dataSource)<mysql.ResultSetHeader[]>;
+		return this.#dataSource.execute.bind(this.#dataSource);
 	}
 }

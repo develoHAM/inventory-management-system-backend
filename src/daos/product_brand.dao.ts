@@ -1,11 +1,11 @@
 import { ProductBrandModel } from 'models';
 import { DAO } from './DAO';
-import { IDAO } from 'interfaces/IDAO';
-import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { IDAO } from 'types/IDAO';
+import { IDatabase, IDatabaseConnection } from 'types/IDatabase';
 
 export class ProductBrandDAO
-	extends DAO<ProductBrandModel, IDatabaseConnection>
-	implements IDAO<ProductBrandModel, IDatabaseConnection>
+	extends DAO<any, ProductBrandModel, IDatabaseConnection>
+	implements IDAO<any, ProductBrandModel, IDatabaseConnection>
 {
 	static tableName: string = 'product_brand';
 

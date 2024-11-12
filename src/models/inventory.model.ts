@@ -1,8 +1,9 @@
-import { IModel } from 'interfaces/IModel';
+import { IModel } from 'types/IModel';
 
 export interface InventoryModel extends IModel {
 	name: string;
 	description?: string | null;
 	file_url?: string | null;
-	date: Date;
+	created_at?: Date;
+	updated_at?: Date;
 }

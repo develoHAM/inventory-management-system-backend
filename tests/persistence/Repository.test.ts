@@ -11,8 +11,8 @@ import {
 	UserRepository,
 	WarehouseRepository,
 } from '../../src/repositories';
-import { IDAO } from '../../src/interfaces/IDAO';
-import { IDatabaseConnection } from '../../src/interfaces/IDatabase';
+import { IDAO } from '../../src/types/IDAO';
+import { IDatabaseConnection } from '../../src/types/IDatabase';
 import { DatabaseQueryError, RepositoryExecutionError } from '../../src/errors/persistence';
 
 const repositoryClasses = [
@@ -169,7 +169,7 @@ const repositoryClasses = [
 ];
 
 describe('Repositories', () => {
-	let mockDAO: IDAO<any, IDatabaseConnection>;
+	let mockDAO: IDAO<any, any, IDatabaseConnection>;
 	const mockConnection = { name: 'testConnectionObject' } as unknown as IDatabaseConnection;
 
 	beforeEach(() => {
@@ -182,7 +182,7 @@ describe('Repositories', () => {
 			insertOne: jest.fn().mockImplementation(() => Promise.resolve({})),
 			updateById: jest.fn().mockImplementation(() => Promise.resolve({})),
 			deleteById: jest.fn().mockImplementation(() => Promise.resolve({})),
-		} as unknown as IDAO<{ id: number }, IDatabaseConnection>;
+		} as unknown as IDAO<any, { id: number }, IDatabaseConnection>;
 	});
 
 	afterEach(() => {
@@ -197,7 +197,7 @@ describe('Repositories', () => {
 					async ({ repositoryClass }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
 						const result = await repositoryInstance.findAll();
-						expect(mockDAO.selectAll).toHaveBeenCalledWith(undefined);
+						expect(mockDAO.selectAll).toHaveBeenCalledWith({ connection: undefined, lock: undefined });
 						expect(result).toEqual([]);
 					}
 				);
@@ -205,8 +205,8 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's selectAll() method with connection object provided then return an array",
 					async ({ repositoryClass }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.findAll(mockConnection);
-						expect(mockDAO.selectAll).toHaveBeenCalledWith(mockConnection);
+						const result = await repositoryInstance.findAll({ connection: mockConnection });
+						expect(mockDAO.selectAll).toHaveBeenCalledWith({ connection: mockConnection, lock: undefined });
 						expect(result).toEqual([]);
 					}
 				);
@@ -237,8 +237,12 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's selectById() method with id of $testId and connection object set to undefined then return an array",
 					async ({ repositoryClass, testId }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.findById(testId);
-						expect(mockDAO.selectById).toHaveBeenCalledWith(testId, undefined);
+						const result = await repositoryInstance.findById({ id: testId });
+						expect(mockDAO.selectById).toHaveBeenCalledWith({
+							id: testId,
+							connection: undefined,
+							lock: undefined,
+						});
 						expect(result).toEqual([]);
 					}
 				);
@@ -246,8 +250,12 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's selectById() method with id of $testId and connection object provided then return an array",
 					async ({ repositoryClass, testId }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.findById(testId, mockConnection);
-						expect(mockDAO.selectById).toHaveBeenCalledWith(testId, mockConnection);
+						const result = await repositoryInstance.findById({ id: testId, connection: mockConnection });
+						expect(mockDAO.selectById).toHaveBeenCalledWith({
+							id: testId,
+							connection: mockConnection,
+							lock: undefined,
+						});
 						expect(result).toEqual([]);
 					}
 				);
@@ -258,7 +266,7 @@ describe('Repositories', () => {
 							Promise.reject(new DatabaseQueryError('test'))
 						);
 						const repositoryInstance = new repositoryClass(mockDAO);
-						await expect(repositoryInstance.findById(testId)).rejects.toThrow(DatabaseQueryError);
+						await expect(repositoryInstance.findById({ id: testId })).rejects.toThrow(DatabaseQueryError);
 					}
 				);
 				it.each(repositoryClasses)(
@@ -268,7 +276,9 @@ describe('Repositories', () => {
 						(mockDAO.selectById as jest.Mock).mockImplementationOnce(() =>
 							Promise.reject(new Error('test'))
 						);
-						await expect(repositoryInstance.findById(testId)).rejects.toThrow(RepositoryExecutionError);
+						await expect(repositoryInstance.findById({ id: testId })).rejects.toThrow(
+							RepositoryExecutionError
+						);
 					}
 				);
 			});
@@ -278,8 +288,12 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's selectWhere() method with criteria of $testCriteria and connection object set to undefined then return an array",
 					async ({ repositoryClass, testCriteria }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.find(testCriteria as any);
-						expect(mockDAO.selectWhere).toHaveBeenCalledWith(testCriteria, undefined);
+						const result = await repositoryInstance.find({ criteria: testCriteria as any });
+						expect(mockDAO.selectWhere).toHaveBeenCalledWith({
+							criteria: testCriteria,
+							connection: undefined,
+							lock: undefined,
+						});
 						expect(result).toEqual([]);
 					}
 				);
@@ -287,8 +301,15 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's selectWhere() method with criteria of $testCriteria and connection object provided then return an array",
 					async ({ repositoryClass, testCriteria }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.find(testCriteria as any, mockConnection);
-						expect(mockDAO.selectWhere).toHaveBeenCalledWith(testCriteria, mockConnection);
+						const result = await repositoryInstance.find({
+							criteria: testCriteria as any,
+							connection: mockConnection,
+						});
+						expect(mockDAO.selectWhere).toHaveBeenCalledWith({
+							criteria: testCriteria,
+							connection: mockConnection,
+							lock: undefined,
+						});
 						expect(result).toEqual([]);
 					}
 				);
@@ -320,8 +341,8 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's create() method with model of $testModel and connection object set to undefined then return an array",
 					async ({ repositoryClass, testModel }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.create(testModel as any);
-						expect(mockDAO.insertOne).toHaveBeenCalledWith(testModel, undefined);
+						const result = await repositoryInstance.create({ model: testModel as any });
+						expect(mockDAO.insertOne).toHaveBeenCalledWith({ model: testModel, connection: undefined });
 						expect(result).toEqual({});
 					}
 				);
@@ -329,8 +350,14 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's create() method with model of $testModel and connection object provided then return an array",
 					async ({ repositoryClass, testModel }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.create(testModel as any, mockConnection);
-						expect(mockDAO.insertOne).toHaveBeenCalledWith(testModel, mockConnection);
+						const result = await repositoryInstance.create({
+							model: testModel as any,
+							connection: mockConnection,
+						});
+						expect(mockDAO.insertOne).toHaveBeenCalledWith({
+							model: testModel,
+							connection: mockConnection,
+						});
 						expect(result).toEqual({});
 					}
 				);
@@ -363,8 +390,13 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's updateById() method with model of $testModel and connection object set to undefined then return an array",
 					async ({ repositoryClass, testId, testUpdates }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.update(testId, testUpdates);
-						expect(mockDAO.updateById).toHaveBeenCalledWith(testId, testUpdates, undefined);
+						const result = await repositoryInstance.update({ id: testId, updates: testUpdates });
+						expect(mockDAO.updateById).toHaveBeenCalledWith({
+							id: testId,
+							updates: testUpdates,
+							connection: undefined,
+							lock: undefined,
+						});
 						expect(result).toEqual({});
 					}
 				);
@@ -372,8 +404,16 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's updateById() method with model of $testModel and connection object provided then return an array",
 					async ({ repositoryClass, testId, testUpdates }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.update(testId, testUpdates, mockConnection);
-						expect(mockDAO.updateById).toHaveBeenCalledWith(testId, testUpdates, mockConnection);
+						const result = await repositoryInstance.update({
+							id: testId,
+							updates: testUpdates,
+							connection: mockConnection,
+						});
+						expect(mockDAO.updateById).toHaveBeenCalledWith({
+							id: testId,
+							updates: testUpdates,
+							connection: mockConnection,
+						});
 						expect(result).toEqual({});
 					}
 				);
@@ -384,7 +424,7 @@ describe('Repositories', () => {
 							Promise.reject(new DatabaseQueryError('test'))
 						);
 						const repositoryInstance = new repositoryClass(mockDAO);
-						await expect(repositoryInstance.update(testId, testUpdates)).rejects.toThrow(
+						await expect(repositoryInstance.update({ id: testId, updates: testUpdates })).rejects.toThrow(
 							DatabaseQueryError
 						);
 					}
@@ -396,7 +436,7 @@ describe('Repositories', () => {
 						(mockDAO.updateById as jest.Mock).mockImplementationOnce(() =>
 							Promise.reject(new Error('test'))
 						);
-						await expect(repositoryInstance.update(testId, testUpdates)).rejects.toThrow(
+						await expect(repositoryInstance.update({ id: testId, updates: testUpdates })).rejects.toThrow(
 							RepositoryExecutionError
 						);
 					}
@@ -408,8 +448,8 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's deleteById() method with id of $testId and connection object set to undefined then return an array",
 					async ({ repositoryClass, testId }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.delete(testId);
-						expect(mockDAO.deleteById).toHaveBeenCalledWith(testId, undefined);
+						const result = await repositoryInstance.delete({ id: testId });
+						expect(mockDAO.deleteById).toHaveBeenCalledWith({ id: testId, connection: undefined });
 						expect(result).toEqual({});
 					}
 				);
@@ -417,8 +457,8 @@ describe('Repositories', () => {
 					"$repositoryClass.name instance should call DAO instance's deleteById() method with id of $testId and connection object provided then return an array",
 					async ({ repositoryClass, testId }) => {
 						const repositoryInstance = new repositoryClass(mockDAO);
-						const result = await repositoryInstance.delete(testId, mockConnection);
-						expect(mockDAO.deleteById).toHaveBeenCalledWith(testId, mockConnection);
+						const result = await repositoryInstance.delete({ id: testId, connection: mockConnection });
+						expect(mockDAO.deleteById).toHaveBeenCalledWith({ id: testId, connection: mockConnection });
 						expect(result).toEqual({});
 					}
 				);
@@ -429,7 +469,7 @@ describe('Repositories', () => {
 							Promise.reject(new DatabaseQueryError('test'))
 						);
 						const repositoryInstance = new repositoryClass(mockDAO);
-						await expect(repositoryInstance.delete(testId)).rejects.toThrow(DatabaseQueryError);
+						await expect(repositoryInstance.delete({ id: testId })).rejects.toThrow(DatabaseQueryError);
 					}
 				);
 				it.each(repositoryClasses)(
@@ -439,7 +479,9 @@ describe('Repositories', () => {
 						(mockDAO.deleteById as jest.Mock).mockImplementationOnce(() =>
 							Promise.reject(new Error('test'))
 						);
-						await expect(repositoryInstance.delete(testId)).rejects.toThrow(RepositoryExecutionError);
+						await expect(repositoryInstance.delete({ id: testId })).rejects.toThrow(
+							RepositoryExecutionError
+						);
 					}
 				);
 			});

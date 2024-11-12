@@ -1,5 +1,8 @@
 import { CompanyModel } from 'models';
 import { Repository } from './Repository';
-import { IRepository } from 'interfaces/IRepository';
+import { IRepository } from 'types/IRepository';
+import { IDatabaseConnection } from 'types/IDatabase';
 
-export class CompanyRepository extends Repository<CompanyModel> implements IRepository<CompanyModel> {}
+export class CompanyRepository<ResultType, ConnectionType extends IDatabaseConnection>
+	extends Repository<ResultType, CompanyModel, ConnectionType>
+	implements IRepository<ResultType, CompanyModel, ConnectionType> {}

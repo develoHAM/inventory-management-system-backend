@@ -1,11 +1,11 @@
 import { StoreBranchModel } from 'models';
 import { DAO } from './DAO';
-import { IDAO } from 'interfaces/IDAO';
-import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { IDAO } from 'types/IDAO';
+import { IDatabase, IDatabaseConnection } from 'types/IDatabase';
 
 export class StoreBranchDAO
-	extends DAO<StoreBranchModel, IDatabaseConnection>
-	implements IDAO<StoreBranchModel, IDatabaseConnection>
+	extends DAO<any, StoreBranchModel, IDatabaseConnection>
+	implements IDAO<any, StoreBranchModel, IDatabaseConnection>
 {
 	static tableName: string = 'store_branch';
 

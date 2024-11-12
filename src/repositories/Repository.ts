@@ -1,19 +1,29 @@
-import { IModel } from 'interfaces/IModel';
-import { IRepository } from 'interfaces/IRepository';
-import { IDAO } from 'interfaces/IDAO';
+import { IModel } from 'types/IModel';
+import {
+	CreateParameter,
+	DeleteParamter,
+	FindAllParameter,
+	FindByIdParameter,
+	FindParameter,
+	IRepository,
+	UpdateParameter,
+} from 'types/IRepository';
+import { IDAO } from 'types/IDAO';
 import { DatabaseQueryError, RepositoryExecutionError } from '../errors/persistence';
-import { IDatabaseConnection } from 'interfaces/IDatabase';
+import { IDatabaseConnection } from 'types/IDatabase';
 
-export abstract class Repository<ModelType extends IModel> implements IRepository<ModelType> {
-	#dao: IDAO<ModelType, any>;
+export abstract class Repository<ResultType, ModelType extends IModel, ConnectionType extends IDatabaseConnection>
+	implements IRepository<ResultType, ModelType, ConnectionType>
+{
+	#dao: IDAO<ResultType, ModelType, any>;
 
-	constructor(dao: IDAO<ModelType, any>) {
+	constructor(dao: IDAO<ResultType, ModelType, any>) {
 		this.#dao = dao;
 	}
 
-	async findAll(connection?: IDatabaseConnection): Promise<ModelType[]> {
+	async findAll({ connection, lock }: FindAllParameter<ConnectionType> = {}): Promise<ModelType[]> {
 		try {
-			const result = await this.#dao.selectAll(connection);
+			const result = await this.#dao.selectAll({ connection, lock });
 			return result;
 		} catch (error) {
 			if (error instanceof DatabaseQueryError) {
@@ -22,9 +32,9 @@ export abstract class Repository<ModelType extends IModel> implements IRepositor
 			throw new RepositoryExecutionError('failed to find resources');
 		}
 	}
-	async findById(id: number, connection?: IDatabaseConnection): Promise<ModelType[]> {
+	async findById({ id, connection, lock }: FindByIdParameter<ConnectionType>): Promise<ModelType[]> {
 		try {
-			const result = await this.#dao.selectById(id, connection);
+			const result = await this.#dao.selectById({ id, connection, lock });
 			return result;
 		} catch (error) {
 			if (error instanceof DatabaseQueryError) {
@@ -34,9 +44,9 @@ export abstract class Repository<ModelType extends IModel> implements IRepositor
 			throw new RepositoryExecutionError('failed to find resource by id');
 		}
 	}
-	async find(criteria: Partial<ModelType>, connection?: IDatabaseConnection): Promise<ModelType[]> {
+	async find({ criteria, connection, lock }: FindParameter<ModelType, ConnectionType>): Promise<ModelType[]> {
 		try {
-			const result = await this.#dao.selectWhere(criteria, connection);
+			const result = await this.#dao.selectWhere({ criteria, connection, lock });
 			return result;
 		} catch (error) {
 			if (error instanceof DatabaseQueryError) {
@@ -46,9 +56,9 @@ export abstract class Repository<ModelType extends IModel> implements IRepositor
 			throw new RepositoryExecutionError('failed to find resource by given criteria');
 		}
 	}
-	async create(model: Omit<ModelType, 'id'>, connection?: IDatabaseConnection): Promise<Record<string, any>> {
+	async create({ model, connection }: CreateParameter<ModelType, ConnectionType>): Promise<ResultType> {
 		try {
-			const result = await this.#dao.insertOne(model, connection);
+			const result = await this.#dao.insertOne({ model, connection });
 			return result;
 		} catch (error) {
 			if (error instanceof DatabaseQueryError) {
@@ -58,13 +68,9 @@ export abstract class Repository<ModelType extends IModel> implements IRepositor
 			throw new RepositoryExecutionError('failed to create resource');
 		}
 	}
-	async update(
-		id: number,
-		updates: Partial<Omit<ModelType, 'id'>>,
-		connection?: IDatabaseConnection
-	): Promise<Record<string, any>> {
+	async update({ id, updates, connection }: UpdateParameter<ModelType, ConnectionType>): Promise<ResultType> {
 		try {
-			const result = await this.#dao.updateById(id, updates, connection);
+			const result = await this.#dao.updateById({ id, updates, connection });
 			return result;
 		} catch (error) {
 			if (error instanceof DatabaseQueryError) {
@@ -74,9 +80,9 @@ export abstract class Repository<ModelType extends IModel> implements IRepositor
 			throw new RepositoryExecutionError('failed to update resource');
 		}
 	}
-	async delete(id: number, connection?: IDatabaseConnection): Promise<Record<string, any>> {
+	async delete({ id, connection }: DeleteParamter<ConnectionType>): Promise<ResultType> {
 		try {
-			const result = await this.#dao.deleteById(id, connection);
+			const result = await this.#dao.deleteById({ id, connection });
 			return result;
 		} catch (error) {
 			if (error instanceof DatabaseQueryError) {

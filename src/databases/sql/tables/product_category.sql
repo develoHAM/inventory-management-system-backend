@@ -1,5 +1,5 @@
 CREATE TABLE IF NOT EXISTS product_category (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL,
+    name VARCHAR(50) NOT NULL UNIQUE,
     description TEXT
 );

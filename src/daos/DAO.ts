@@ -1,15 +1,25 @@
-import { IModel } from 'interfaces/IModel';
-import { IDatabase, IDatabaseConnection } from 'interfaces/IDatabase';
+import { IModel } from 'types/IModel';
+import { IDatabase, IDatabaseConnection } from 'types/IDatabase';
 import { DatabaseQueryError } from '../errors/persistence';
-import { IDAO, ExecuteOperationParameter } from 'interfaces/IDAO';
+import {
+	IDAO,
+	ExecuteOperationParameter,
+	DatabaseLockMode,
+	SelectAllParameter,
+	SelectByIdParameter,
+	SelectWhereParameter,
+	InsertOneParameter,
+	UpdateByIdParameter,
+	DeleteByIdParameter,
+} from '../types/IDAO';
 
-export abstract class DAO<ModelType extends IModel, ConnectionType extends IDatabaseConnection>
-	implements IDAO<ModelType, ConnectionType>
+export abstract class DAO<ResultType, ModelType extends IModel, ConnectionType extends IDatabaseConnection>
+	implements IDAO<ResultType, ModelType, ConnectionType>
 {
-	protected database: IDatabase<any, any, ConnectionType>;
+	protected database: IDatabase<ResultType, ModelType, ConnectionType>;
 	tableName: string;
 
-	constructor(database: IDatabase<any, any, ConnectionType>, tableName: string) {
+	constructor(database: IDatabase<ResultType, ModelType, ConnectionType>, tableName: string) {
 		this.database = database;
 		this.tableName = tableName;
 	}
@@ -18,15 +28,27 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 		sql,
 		values = [],
 		connection,
+		lock,
 	}: ExecuteOperationParameter<ConnectionType>): Promise<ModelType[]> {
 		try {
-			let rows: ModelType[];
+			let rows;
+			switch (lock) {
+				case DatabaseLockMode.FOR_SHARE:
+					sql = this.database.lockForShare(sql);
+					break;
+				case DatabaseLockMode.FOR_UPDATE:
+					sql = this.database.lockForUpdate(sql);
+					break;
+				default:
+					break;
+			}
+
 			if (connection) {
-				const [result] = await connection.execute(sql, values);
-				rows = result as ModelType[];
+				const [result] = await connection.execute<ModelType[]>(sql, values);
+				rows = result;
 			} else {
 				const [result] = await this.database.executeRows(sql, values);
-				rows = result as ModelType[];
+				rows = result;
 			}
 			return rows;
 		} catch (error) {
@@ -38,11 +60,11 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 		sql,
 		values = [],
 		connection,
-	}: ExecuteOperationParameter<ConnectionType>): Promise<Record<string, any>> {
+	}: ExecuteOperationParameter<ConnectionType>): Promise<ResultType> {
 		try {
-			let executionResult: Record<string, any>;
+			let executionResult;
 			if (connection) {
-				const [result] = await connection.execute(sql, values);
+				const [result] = await connection.execute<ResultType>(sql, values);
 				executionResult = result;
 			} else {
 				const [result] = await this.database.executeResult(sql, values);
@@ -54,7 +76,7 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 		}
 	}
 
-	async selectById(id: number, connection?: ConnectionType) {
+	async selectById({ id, connection, lock }: SelectByIdParameter<ConnectionType>) {
 		let sql = `
 			SELECT
 				*
@@ -65,10 +87,10 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 		`;
 		let values = [id];
 
-		return this.executeReadOperation({ sql, values, connection });
+		return this.executeReadOperation({ sql, values, connection, lock });
 	}
 
-	async selectAll(connection?: ConnectionType): Promise<ModelType[]> {
+	async selectAll({ connection, lock }: SelectAllParameter<ConnectionType> = {}): Promise<ModelType[]> {
 		let sql = `
 			SELECT
 				*
@@ -76,10 +98,10 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 				${this.tableName};
 		`;
 
-		return await this.executeReadOperation({ sql, connection });
+		return await this.executeReadOperation({ sql, connection, lock });
 	}
 
-	async selectWhere(criteria: Partial<ModelType>, connection?: ConnectionType) {
+	async selectWhere({ criteria, connection, lock }: SelectWhereParameter<ModelType, ConnectionType>) {
 		let sql = `
 			SELECT
 				*
@@ -98,16 +120,16 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 			}
 			sql += ` ${conditions.join(' AND ')}; `;
 
-			return this.executeReadOperation({ sql, values, connection });
+			return this.executeReadOperation({ sql, values, connection, lock });
 		} else {
 			sql += ` id = ?; `;
 			values.push(criteria.id);
 
-			return this.executeReadOperation({ sql, values, connection });
+			return this.executeReadOperation({ sql, values, connection, lock });
 		}
 	}
 
-	async insertOne(model: Omit<ModelType, 'id'>, connection?: ConnectionType) {
+	async insertOne({ model, connection }: InsertOneParameter<ModelType, ConnectionType>) {
 		let sql = `
 			INSERT INTO
 				${this.tableName}
@@ -130,7 +152,7 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 		return this.executeWriteOperation({ sql, values, connection });
 	}
 
-	async updateById(id: number, updates: Partial<Omit<ModelType, 'id'>>, connection?: ConnectionType) {
+	async updateById({ id, updates, connection }: UpdateByIdParameter<ModelType, ConnectionType>) {
 		let sql = `
 			UPDATE
 				${this.tableName}
@@ -151,7 +173,7 @@ export abstract class DAO<ModelType extends IModel, ConnectionType extends IData
 		return this.executeWriteOperation({ sql, values, connection });
 	}
 
-	async deleteById(id: number, connection?: ConnectionType) {
+	async deleteById({ id, connection }: DeleteByIdParameter<ConnectionType>) {
 		let sql = `
 			DELETE FROM
 				${this.tableName}

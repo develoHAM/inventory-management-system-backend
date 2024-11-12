@@ -1,4 +1,6 @@
 CREATE TABLE IF NOT EXISTS warehouse (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL
+    name VARCHAR(50) NOT NULL UNIQUE,
+    store_branch INT,
+    FOREIGN KEY (store_branch) REFERENCES store_branch(id) ON UPDATE CASCADE ON DELETE SET CASCADE
 );
