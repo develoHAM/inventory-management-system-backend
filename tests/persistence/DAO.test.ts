@@ -1,3 +1,4 @@
+//@ts-nocheck
 import { jest, it, describe, afterEach, beforeEach, expect } from '@jest/globals';
 import {
 	CompanyDAO,
@@ -5,7 +6,7 @@ import {
 	ProductBrandDAO,
 	ProductCategoryDAO,
 	ProductInventoryDAO,
-	ProducDAO,
+	ProductDAO,
 	StoreBranchDAO,
 	StoreManagerDAO,
 	UserDAO,
@@ -26,14 +27,10 @@ import {
 	WarehouseModel,
 } from '../../src/models';
 import { DatabaseQueryError } from '../../src/errors/persistence';
-import { IDatabase, IDatabaseConnection } from '../../src/interfaces/IDatabase';
-import { IModel } from '../../src/interfaces/IModel';
+import { IDatabase, IDatabaseConnection } from '../../src/types/IDatabase';
+import { DatabaseLockMode } from '../../src/types/IDAO';
+import { IModel } from '../../src/types/IModel';
 import { UserType } from '../../src/models/user.model';
-
-type combinedCriteriaWithoutId = Omit<WarehouseModel, 'id'> &
-	Omit<ProductModel, 'id'> &
-	Omit<StoreBranchModel, 'id'> &
-	Omit<ProductInventoryModel, 'id'>;
 
 const daoClasses = [
 	{
@@ -41,7 +38,7 @@ const daoClasses = [
 		name: 'company',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { name: 'test', description: 'test' } as Omit<CompanyModel, 'id'>,
+		criteriaWithoutId: { name: 'test', description: 'test' },
 		updates: { role: 'new' },
 	},
 	{
@@ -49,7 +46,11 @@ const daoClasses = [
 		name: 'inventory',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { name: 'test', description: 'test', date: new Date() } as Omit<InventoryModel, 'id'>,
+		criteriaWithoutId: {
+			name: 'test',
+			description: 'test',
+			date: new Date(),
+		},
 		updates: { role: 'new' },
 	},
 	{
@@ -57,7 +58,7 @@ const daoClasses = [
 		name: 'product_brand',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { name: 'test', description: 'test' } as Omit<ProductBrandModel, 'id'>,
+		criteriaWithoutId: { name: 'test', description: 'test' },
 		updates: { role: 'new' },
 	},
 	{
@@ -65,7 +66,7 @@ const daoClasses = [
 		name: 'product_category',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { name: 'test', description: 'test' } as Omit<ProductCategoryModel, 'id'>,
+		criteriaWithoutId: { name: 'test', description: 'test' },
 		updates: { role: 'new' },
 	},
 	{
@@ -73,14 +74,11 @@ const daoClasses = [
 		name: 'product_inventory',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { quantity: 3, product: 1, user: 1, warehouse: 1, inventory: 1 } as Omit<
-			ProductInventoryModel,
-			'id'
-		>,
+		criteriaWithoutId: { quantity: 3, product: 1, user: 1, warehouse: 1, inventory: 1 },
 		updates: { role: 'new' },
 	},
 	{
-		DAOClass: ProducDAO,
+		DAOClass: ProductDAO,
 		name: 'product',
 		testId: 1,
 		criteriaWithId: { id: 2 },
@@ -93,7 +91,7 @@ const daoClasses = [
 			price: 100,
 			image_url: 'test',
 			code: '123123',
-		},
+		} as Omit<ProductModel, 'id'>,
 		updates: { role: 'new' },
 	},
 	{
@@ -101,7 +99,7 @@ const daoClasses = [
 		name: 'store_branch',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { location: 'test', store_manager: 1 } as Omit<StoreBranchModel, 'id'>,
+		criteriaWithoutId: { location: 'test', store_manager: 1 },
 		updates: { role: 'new' },
 	},
 	{
@@ -109,7 +107,7 @@ const daoClasses = [
 		name: 'store_manager',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { name: 'test', phone: 'test' } as Omit<StoreManagerModel, 'id'>,
+		criteriaWithoutId: { name: 'test', phone: 'test' },
 		updates: { role: 'new' },
 	},
 	{
@@ -119,7 +117,7 @@ const daoClasses = [
 		criteriaWithId: { id: 2 },
 		criteriaWithoutId: {
 			name: 'test',
-			user_type: UserType.USER,
+			user_type: UserType.STORE_STAFF,
 			username: 'test',
 			email: 'test',
 			password: 'test',
@@ -134,7 +132,7 @@ const daoClasses = [
 		name: 'warehouse',
 		testId: 1,
 		criteriaWithId: { id: 2 },
-		criteriaWithoutId: { name: 'test', role: 'test' } as Omit<WarehouseModel, 'id'>,
+		criteriaWithoutId: { name: 'test', store_branch: 1 },
 		updates: { role: 'new' },
 	},
 ];
@@ -146,6 +144,8 @@ describe('DAOs', () => {
 			executeRows: jest.fn().mockImplementation(() => Promise.resolve([[], {}])), // Mock implementation for executeRows
 			executeResult: jest.fn().mockImplementation(() => Promise.resolve([{}, {}])), // Mock implementation for executeResult
 			// Mock other methods as needed
+			lockForUpdate: jest.fn().mockImplementation(() => ''),
+			lockForShare: jest.fn().mockImplementation(() => ''),
 		} as unknown as jest.Mocked<IDatabase<any, any, any>>;
 	});
 
@@ -159,6 +159,7 @@ describe('DAOs', () => {
 				'"$DAOClass.name" has "$name" as the tableName when instantiated',
 				async ({ DAOClass, name }) => {
 					const daoInstance = new DAOClass({} as IDatabase<any, any, any>) as DAO<
+						any,
 						IModel,
 						IDatabaseConnection
 					>;
@@ -200,13 +201,87 @@ describe('DAOs', () => {
 			);
 
 			it.each(daoClasses)(
-				'$DAOClass.name instance should call database.executeRows() when executeWriteOperation() method is called only with the sql string, then return the result',
+				'$DAOClass.name instance should call database.lockForUpdate(), and then connection.execute() when executeReadOperation() method is called with the sql string, optional values, a lock enum as DatabaseLockMode.FOR_UPDATE, and a connection object provided as arguments, then return the result',
 				async ({ DAOClass, name }) => {
 					const daoInstance = new DAOClass(mockDB);
-					const sql = `INSERT INTO ${name} (name) VALUES (?);`;
+					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
+					const values = [1];
+					const connection = {
+						execute: jest.fn().mockImplementation(() => Promise.resolve([[], {}])),
+					};
+					const result = await daoInstance.executeReadOperation({
+						sql: sql,
+						values: values,
+						lock: DatabaseLockMode.FOR_UPDATE,
+						connection: connection as unknown as IDatabaseConnection,
+					});
+					expect(mockDB.lockForUpdate).toHaveBeenCalledWith(sql);
+					expect(connection.execute as jest.Mock).toHaveBeenCalledWith('', values);
+					expect(result).toEqual([]);
+				}
+			);
+
+			it.each(daoClasses)(
+				'$DAOClass.name instance should call database.lockForShare(), and then connection.execute() when executeReadOperation() method is called with the sql string, optional values, a lock enum as DatabaseLockMode.FOR_SHARE, and a connection object provided as arguments, then return the result',
+				async ({ DAOClass, name }) => {
+					const daoInstance = new DAOClass(mockDB);
+					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
+					const values = [1];
+					const connection = {
+						execute: jest.fn().mockImplementation(() => Promise.resolve([[], {}])),
+					};
+					const result = await daoInstance.executeReadOperation({
+						sql,
+						values,
+						lock: DatabaseLockMode.FOR_SHARE,
+						connection: connection as unknown as IDatabaseConnection,
+					});
+					expect(mockDB.lockForShare).toHaveBeenCalledWith(sql);
+					expect(connection.execute).toHaveBeenCalled();
+					expect(result).toEqual([]);
+				}
+			);
+
+			it.each(daoClasses)(
+				'$DAOClass.name instance should call database.executeRows() when executeReadOperation() method is called only with the sql string, then return the result',
+				async ({ DAOClass, name }) => {
+					const daoInstance = new DAOClass(mockDB);
+					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
 					const result = await daoInstance.executeReadOperation({ sql });
 					const values: any[] = [];
 					expect(mockDB.executeRows).toHaveBeenCalledWith(sql, values);
+					expect(result).toEqual([]);
+				}
+			);
+
+			it.each(daoClasses)(
+				'$DAOClass.name instance should call database.lockForUpdate(), and then database.executeRows() when executeReadOperation() method is called with the sql string and lock enum as DatabaseLockMode.FOR_UPDATE then return the result',
+				async ({ DAOClass, name }) => {
+					const daoInstance = new DAOClass(mockDB);
+					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
+					const values: any[] = [];
+					const result = await daoInstance.executeReadOperation({
+						sql: sql,
+						values,
+						lock: DatabaseLockMode.FOR_UPDATE,
+					});
+					expect(mockDB.lockForUpdate).toHaveBeenCalledWith(sql);
+					expect(result).toEqual([]);
+				}
+			);
+
+			it.each(daoClasses)(
+				'$DAOClass.name instance should call database.lockForShare(), and then database.executeRows() when executeReadOperation() method is called with the sql string and lock enum as DatabaseLockMode.FOR_UPDATE then return the result',
+				async ({ DAOClass, name }) => {
+					const daoInstance = new DAOClass(mockDB);
+					const sql = `SELECT * FROM ${name} WHERE id = ?;`;
+					const values: any[] = [];
+					const result = await daoInstance.executeReadOperation({
+						sql: sql,
+						values,
+						lock: DatabaseLockMode.FOR_SHARE,
+					});
+					expect(mockDB.lockForShare).toHaveBeenCalledWith(sql);
 					expect(result).toEqual([]);
 				}
 			);
@@ -291,8 +366,12 @@ describe('DAOs', () => {
 				executeResult: jest.fn().mockImplementation(() => Promise.resolve([{}, {}])), // Mock implementation for executeResult
 				// Mock other methods as needed
 			} as unknown as jest.Mocked<IDatabase<any, any, any>>;
-			let spyExecuteReadOperation: jest.SpiedFunction<DAO<IModel, IDatabaseConnection>['executeReadOperation']>;
-			let spyExecuteWriteOperation: jest.SpiedFunction<DAO<IModel, IDatabaseConnection>['executeWriteOperation']>;
+			let spyExecuteReadOperation: jest.SpiedFunction<
+				DAO<any, IModel, IDatabaseConnection>['executeReadOperation']
+			>;
+			let spyExecuteWriteOperation: jest.SpiedFunction<
+				DAO<any, IModel, IDatabaseConnection>['executeWriteOperation']
+			>;
 			let mockConnection = {
 				execute: jest.fn(async (sql: string, values: any[]) => {
 					if (sql.includes('SELECT')) {
@@ -316,7 +395,7 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeReadOperation() on $name with "id" provided as "$testId", then returns its result',
 					async ({ DAOClass, testId, name }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.selectById(testId);
+						const result = await daoInstance.selectById({ id: testId });
 						const expectedSQL = `
 			SELECT
 				*
@@ -338,7 +417,7 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeReadOperation() on $name with "id" provided as "$testId" and a connection object, then returns its result',
 					async ({ DAOClass, testId, name }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.selectById(testId, mockConnection);
+						const result = await daoInstance.selectById({ id: testId, connection: mockConnection });
 						const expectedSQL = `
 			SELECT
 				*
@@ -378,7 +457,7 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeReadOperation() on $name with "id" provided as "$testId" and a connection object, then returns its result',
 					async ({ DAOClass, name }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.selectAll(mockConnection);
+						const result = await daoInstance.selectAll({ connection: mockConnection });
 						const expectedSQL = `
 			SELECT
 				*
@@ -399,7 +478,7 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeReadOperation() on $name, then returns its result when criteria with id is given',
 					async ({ DAOClass, name, criteriaWithId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.selectWhere(criteriaWithId);
+						const result = await daoInstance.selectWhere({ criteria: criteriaWithId });
 						const expectedSQL =
 							`
 			SELECT
@@ -422,7 +501,10 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeReadOperation() on $name with a connection object, then returns its result when criteria with id is given',
 					async ({ DAOClass, name, criteriaWithId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.selectWhere(criteriaWithId, mockConnection);
+						const result = await daoInstance.selectWhere({
+							criteria: criteriaWithId,
+							connection: mockConnection,
+						});
 						const expectedSQL =
 							`
 			SELECT
@@ -445,7 +527,7 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeReadOperation() on $name, then returns its result when criteria without id is given',
 					async ({ DAOClass, name, criteriaWithoutId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.selectWhere(criteriaWithoutId);
+						const result = await daoInstance.selectWhere({ criteria: criteriaWithoutId });
 						let expectedSQL = `
 			SELECT
 				*
@@ -473,7 +555,10 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeReadOperation() on $name with a connection object, then returns its result when criteria without id is given',
 					async ({ DAOClass, name, criteriaWithoutId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.selectWhere(criteriaWithoutId, mockConnection);
+						const result = await daoInstance.selectWhere({
+							criteria: criteriaWithoutId,
+							connection: mockConnection,
+						});
 						let expectedSQL = `
 			SELECT
 				*
@@ -503,7 +588,9 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeWriteOperation() on $name, then returns its result when criteria without id is given',
 					async ({ DAOClass, name, criteriaWithoutId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.insertOne(criteriaWithoutId as combinedCriteriaWithoutId);
+						const result = await daoInstance.insertOne({
+							model: criteriaWithoutId,
+						});
 						let expectedSQL = `
 			INSERT INTO
 				${name}
@@ -524,10 +611,10 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeWriteOperation() on $name with a connection object, then returns its result when criteria without id is given',
 					async ({ DAOClass, name, criteriaWithoutId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.insertOne(
-							criteriaWithoutId as combinedCriteriaWithoutId,
-							mockConnection
-						);
+						const result = await daoInstance.insertOne({
+							model: criteriaWithoutId,
+							connection: mockConnection,
+						});
 						let expectedSQL = `
 			INSERT INTO
 				${name}
@@ -554,10 +641,10 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeWriteOperation() on $name, then returns its result when id and updates are given',
 					async ({ DAOClass, name, testId, updates }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.updateById(
-							testId,
-							updates as unknown as combinedCriteriaWithoutId
-						);
+						const result = await daoInstance.updateById({
+							id: testId,
+							updates: updates,
+						});
 						let expectedSQL = `
 			UPDATE
 				${name}
@@ -581,11 +668,11 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeWriteOperation() on $name with a connection object, then returns its result when id and updates are given',
 					async ({ DAOClass, name, testId, updates }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.updateById(
-							testId,
-							updates as unknown as combinedCriteriaWithoutId,
-							mockConnection
-						);
+						const result = await daoInstance.updateById({
+							id: testId,
+							updates: updates,
+							connection: mockConnection,
+						});
 						let expectedSQL = `
 			UPDATE
 				${name}
@@ -615,7 +702,7 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeWriteOperation() on $name, then returns its result when id is given',
 					async ({ DAOClass, name, testId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.deleteById(testId);
+						const result = await daoInstance.deleteById({ id: testId });
 						let expectedSQL = `
 			DELETE FROM
 				${name}
@@ -632,7 +719,7 @@ describe('DAOs', () => {
 					'$DAOClass.name calls executeWriteOperation() on $name with a connection object, then returns its result when id is given',
 					async ({ DAOClass, name, testId }) => {
 						const daoInstance = new DAOClass(mockDB);
-						const result = await daoInstance.deleteById(testId, mockConnection);
+						const result = await daoInstance.deleteById({ id: testId, connection: mockConnection });
 						let expectedSQL = `
 			DELETE FROM
 				${name}

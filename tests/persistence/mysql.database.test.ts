@@ -191,6 +191,34 @@ describe('MySQL Class', () => {
 		});
 	});
 
+	describe('lockForUpdate()', () => {
+		it('returns a given sql in lock for update mode', () => {
+			const testSQLWithSemicolon = 'SELECT 1 FROM test WHERE id = 1;';
+			const testSQLWithoutSemicolon = 'SELECT 1 FROM test WHERE id = 1';
+			const expectedSQL = 'SELECT 1 FROM test WHERE id = 1 FOR UPDATE;';
+
+			const resultSQLWithSemicolon = db.lockForUpdate(testSQLWithSemicolon);
+			const resultSQLWithoutSemicolon = db.lockForUpdate(testSQLWithoutSemicolon);
+			expect(resultSQLWithSemicolon).toEqual(expectedSQL);
+			expect(resultSQLWithoutSemicolon).toEqual(expectedSQL);
+			expect(resultSQLWithSemicolon).toEqual(resultSQLWithoutSemicolon);
+		});
+	});
+
+	describe('lockForShare', () => {
+		it('returns a given sql in lock for share mode', () => {
+			const testSQLWithSemicolon = 'SELECT 1 FROM test WHERE id = 1;';
+			const testSQLWithoutSemicolon = 'SELECT 1 FROM test WHERE id = 1';
+			const expectedSQL = 'SELECT 1 FROM test WHERE id = 1 LOCK IN SHARE MODE;';
+
+			const resultSQLWithSemicolon = db.lockForShare(testSQLWithSemicolon);
+			const resultSQLWithoutSemicolon = db.lockForShare(testSQLWithoutSemicolon);
+			expect(resultSQLWithSemicolon).toEqual(expectedSQL);
+			expect(resultSQLWithoutSemicolon).toEqual(expectedSQL);
+			expect(resultSQLWithSemicolon).toEqual(resultSQLWithoutSemicolon);
+		});
+	});
+
 	describe('get queryRows()', () => {
 		it('calls connect()', () => {
 			const queryRows = db.queryRows;

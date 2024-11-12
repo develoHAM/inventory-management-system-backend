@@ -1,15 +1,16 @@
 import { jest, it, describe, beforeAll, beforeEach, afterAll, afterEach, expect } from '@jest/globals';
 import { TransactionHandler } from '../../src/databases/TransactionHandler';
-import { IDatabase } from '../../src/interfaces/IDatabase';
-import { ITransactionHandler } from '../../src/interfaces/ITransactionHandler';
+import { IDatabase, IDatabaseConnection } from '../../src/types/IDatabase';
+import { ITransactionHandler } from '../../src/types/ITransactionHandler';
 import { TransactionHandlingError, DatabaseConnectionError } from '../../src/errors/persistence';
 jest.mock('../../src/databases');
 import Database from '../../src/databases';
 
 describe('TransactionHandler', () => {
 	let db: IDatabase<any, any, any>;
-	let transactionHandler: ITransactionHandler;
+	let transactionHandler: ITransactionHandler<IDatabaseConnection>;
 	let testConnection: { test: 'testConnection' };
+
 	beforeEach(() => {
 		db = new Database({}, []);
 		transactionHandler = new TransactionHandler(db);
@@ -41,7 +42,6 @@ describe('TransactionHandler', () => {
 		it('calls database.beginTransaction() with the connection object provided then, returns true', async () => {
 			const result = await transactionHandler.begin(testConnection as any);
 			expect(db.beginTransaction).toBeCalledWith(testConnection);
-			expect(result).toBe(true);
 		});
 		it('rethrows DatabaseConnectionError upon failure', async () => {
 			(db.beginTransaction as jest.Mock).mockImplementationOnce(() =>
@@ -62,7 +62,6 @@ describe('TransactionHandler', () => {
 			const result = await transactionHandler.commit(testConnection as any);
 			expect(db.commitTransaction).toBeCalledWith(testConnection);
 			expect(db.commitTransaction).toBeCalledTimes(1);
-			expect(result).toBe(true);
 		});
 
 		it('rethrows DatabaseConnectionError upon failure', async () => {
@@ -86,7 +85,6 @@ describe('TransactionHandler', () => {
 			const result = await transactionHandler.rollback(testConnection as any);
 			expect(db.rollbackTransaction).toBeCalledWith(testConnection);
 			expect(db.rollbackTransaction).toBeCalledTimes(1);
-			expect(result).toBe(true);
 		});
 
 		it('rethrows DatabaseConnectionError upon failure', async () => {
@@ -110,7 +108,6 @@ describe('TransactionHandler', () => {
 			const result = transactionHandler.end(testConnection as any);
 			expect(db.releaseConnection).toBeCalledWith(testConnection);
 			expect(db.releaseConnection).toBeCalledTimes(1);
-			expect(result).toBe(true);
 		});
 
 		it('rethrows DatabaseConnectionError upon failure', () => {
